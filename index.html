@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>WebGL Example</title>
+		<meta name="description" content="WebGL Example">
+		<meta name="author" content="Grammatopoulos Athanasios Vasileios">
+		
+		<!-- external libraries for matrix calculations and maintenance -->
+		<script type="text/javascript" src="./glMatrix-0.9.5.min.js"></script>
+		
+		<!-- Code for the vertex shader-->
+		<script id="shader-vs" type="x-shader/x-vertex">
+			//attributes for the vertex shader (different for every thread/core that will execute a copy of this)
+			attribute vec3 aVertexPosition;
+			attribute vec4 aVertexColor;
+
+			//ModelView and Projection Matrices
+			uniform mat4 uMVMatrix;
+			uniform mat4 uPMatrix;
+
+			//Variable to be forwarded to the corresponding thread of the fragment shader
+			varying vec4 vColor;
+
+			//main function of the vertex shader
+			//this code will be copied to many shader cores/threads and executed with the associated
+			//data for every vertex (matrices, color, etc)
+			void main(void) {
+			
+			//Each vertex is multiplied with the ModelView and Projection matrices and created a fragment
+				gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+				//Its color is forwarded to the fragment shader
+				vColor = aVertexColor;
+			}
+		</script>
+
+		<!-- Code for the fragment shader-->
+		<script id="shader-fs" type="x-shader/x-fragment">
+			//necessary code for compatibility
+			precision mediump float;
+
+			//Variable coming from the vertex shader
+			varying vec4 vColor;
+
+			void main(void) {
+			//the fragment gets its color value.
+			//in the fragment shader many advanced shading algorithms can be implemented (Phong etc..)
+				gl_FragColor = vColor;
+			}
+		</script>
+		
+		<!-- Code for the texture vertex shader-->
+		<script id="texture-shader-fs" type="x-shader/x-fragment">
+			varying highp vec2 vTextureCoord;
+
+			uniform sampler2D uSampler;
+
+			void main(void) {
+				gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+			}
+		</script>
+
+		<!-- Code for the texture fragment shader-->
+		<script id="texture-shader-vs" type="x-shader/x-vertex">
+			attribute vec3 aVertexPosition;
+			attribute vec2 aTextureCoord;
+
+			uniform mat4 uMVMatrix;
+			uniform mat4 uPMatrix;
+
+			varying highp vec2 vTextureCoord;
+
+			void main(void) {
+				gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+				vTextureCoord = aTextureCoord;
+			}
+		</script>
+
+		<style type="text/css">
+			html, body {
+				background: #3d3d3d;
+			}
+			body {
+				font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+				font-size: 14px;
+				line-height: 1.5;
+				color: #ffffff;
+			}
+			#page-wrapper {
+				width: 908px;
+				margin: 0 auto;
+			}
+			#canvasWebGL {
+				border: 4px solid #2c2c2c;
+				width: 900px;
+				height: 500px;
+				margin: 20px 0px;
+				display: block;
+			}
+
+			input[type="button"] {
+				border: 2px solid #2c2c2c;
+				background: #4d4d4d;
+				padding: 5px 8px;
+				color: #bfbfbf;
+				text-shadow: 0px 0px 2px #2c2c2c;
+				cursor: pointer;
+			}
+			input[type="button"]:hover {
+				background: #5d5d5d;
+			}
+
+			#info-table {
+				width: 600px;
+				margin: 20px auto;
+			}
+			#info-table .header {
+				background: #4d4d4d;
+			}
+			#info-table td {
+				padding: 2px 10px;
+			}
+			#info-table input[type="range"] {
+				width: 100%;
+			}
+		</style>
+
+	</head>
+	<body>
+		<div id="page-wrapper">
+			<h1>Example WebGL</h1>
+			<canvas id="canvasWebGL" width="900" height="500">
+				Your browser doesn't appear to support the 
+				<code>&lt;canvas&gt;</code> element.
+			</canvas>
+			<input type="button" value="Change textures" onclick="toggleTextures();">
+			<input type="button" value="Reset player's position" onclick="window.rPlayer=0;window.xPlayer=0;window.yPlayer=0;">
+			<span style="float: right;">Use arrow keys to move player around.</span>
+
+			<div>
+				<table id="info-table">
+					<tr class="header">
+						<td>Property</td>
+						<td>Type</td>
+						<td style="width: 90px;">Value</td>
+						<td>Change value</td>
+					</tr>
+					<tr>
+						<td>Position</td>
+						<td>&lt;x, y, z&gt;</td>
+						<td id="info-position"></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td>Facing direction</td>
+						<td>&lt;degrees&gt;</td>
+						<td id="info-degrees"></td>
+						<td><input id="info-range-degrees" type="range" min="0" max="360" step="1"></td>
+					</tr>
+					<tr>
+						<td>Camera angle</td>
+						<td>&lt;degrees&gt;</td>
+						<td id="info-camera-angle"></td>
+						<td><input id="info-range-camera-angle" type="range" min="0" max="90" step="1"></td>
+					</tr>
+					<tr>
+						<td>Camera distance</td>
+						<td>&lt;pixels&gt;</td>
+						<td id="info-camera-distance"></td>
+						<td><input id="info-range-camera-distance" type="range" min="10" max="150" step="1"></td>
+					</tr>
+					<tr>
+						<td>Speed</td>
+						<td>&lt;factor&gt;</td>
+						<td id="info-speed"></td>
+						<td><input id="info-range-speed" type="range" min="0.1" max="0.5" step="0.01"></td>
+					</tr>
+				</table>
+			</div>
+		</div>
+		
+		<!-- My robot code -->
+		<script type="text/javascript" src="script.js"></script>		
+	</body>
+</html>
